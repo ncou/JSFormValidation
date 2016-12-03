@@ -25,6 +25,7 @@
 // 
 // Created by Lindsay Watt for CAB230
 
+
 function FormValidation(form) {
     var regex_presets = {
         letters: /^[a-zA-Z]*$/, // letters only
@@ -33,9 +34,18 @@ function FormValidation(form) {
         numbers: /^[0-9]*$/, // numbers only
         phone: /^[0-9 \-+]*$/, // numbers, spaces, - and +
         date: /^\d{4}-\d{2}-\d{2}$/, // standard unix date format: YYYY-mm-dd
-        email: /[a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/
-        // email regex was taken from this resource: http://www.regular-expressions.info/email.html
-        // it is a simplified implementation of the RFC 5322 syntax standard
+        // From https://html.spec.whatwg.org/multipage/forms.html#valid-e-mail-address
+         email: /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/,
+        // Copyright (c) 2010-2013 Diego Perini, MIT licensed
+        // https://gist.github.com/dperini/729294
+        // see also https://mathiasbynens.be/demo/url-regex
+        // modified to allow protocol-relative URLs
+        //url: /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})).?)(?::\d{2,5})?(?:[/?#]\S*)?$/i
+        
+        //https://gist.github.com/pkrefta/2378614
+        url: /\b((?:https?:\/\/|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))/i
+
+
     };
 
     var submit_button = form.querySelector('[type="submit"]'); // find the submit button
@@ -45,33 +55,38 @@ function FormValidation(form) {
 
     for (var i=0; i<validation_fields.length; ++i) {
         var field = validation_fields[i];
-        // construct an annonymous object for each field
-        var field_object = {
-            field: field,
-            status_id: "#" + field.name + "-status",
-            validation: field.attributes['data-validation'].value.split(" "),
-            valid: false
-            // validation is an array of each validation type specified for the field
-        };
-        // onchange event is required for radio and checkbox fields
-        // whereas text based fields require oninput
-        if (field.type == "checkbox" || field.type == "radio") {
-            field.onchange = validate;
-        } else {
-            field.oninput = validate;
-            field.onchange = validate;       
+
+        // avoid empty validation string
+        if (field.attributes['data-validation'].value.length > 0) {
+            // construct an annonymous object for each field
+            var field_object = {
+                field: field,
+                status_id: "#" + field.name + "-status",
+                validation: field.attributes['data-validation'].value.split(" "),
+                valid: false
+                // validation is an array of each validation type specified for the field
+            };
+            // onchange event is required for radio and checkbox fields
+            // whereas text based fields require oninput
+            if (field.type == "checkbox" || field.type == "radio") {
+                field.onchange = validate;
+            } else {
+                field.oninput = validate;
+                field.onchange = validate;       
+            }
+            fields.push(field_object); // append the object to the array
         }
-        fields.push(field_object); // append the object to the array
     }
 
     // When the page loads, run an initial validation
     // this will show the user which fields are required and which are not
-    window.onload = function() {
-        validate();
-    };
+    //window.onload = function() {
+        //validate();
+    //};
 
     // validates all inputs in the field array
     function validate() {
+
         // assume that the form is valid initially
         var form_valid = true;
         // validate each field using each type of validation specified for that field
@@ -79,6 +94,7 @@ function FormValidation(form) {
             var field = fields[i];
             for (var ii = 0; ii < field.validation.length; ++ii) {
                 var status = doValidation(field.validation[ii], field);
+
                 if (status === VALID) {
                     // set the appropriate 'status' element to show the 'Good' message
                     setStatus(field.status_id, "Good", "success");
@@ -98,7 +114,10 @@ function FormValidation(form) {
             }
         }
         // set the disabled attribute of the button
+        // TODO : à virer
         submit_button.disabled = !form_valid;
+        return form_valid;
+
     }
 
     // takes a single validation command and the field object
@@ -116,9 +135,9 @@ function FormValidation(form) {
                 var min = parseInt(type[1].split("-")[0]);
                 var max = parseInt(type[1].split("-")[1]);
                 if (string.length < min) {
-                    return "Must be longer than " + (min - 1) + " characters";
+                    return "Must be longer than " + min + " characters";
                 } else if (string.length > max) {
-                    return "Must be shorter than " + (max + 1) + " characters";
+                    return "Must be shorter than " + max + " characters";
                 }
                 break;
             case "regex":
@@ -144,17 +163,28 @@ function FormValidation(form) {
                 break;
             case "req":
                 // use this for all required fields
+
+                if ( field_ob.field.nodeName.toLowerCase() === "select" ) {
+                    // Could be an array for select-multiple or a string, both are fine this way
+                    if (!string  || string.length === 0) {
+                        return "Required";   
+                    }
+                }
+
+                if ( field_ob.field.type === "checkbox" ) {
+                    if (field_ob.field.checked === false) {
+                        return "Required";   
+                    }
+                }
+
+
                 if (string.length === 0) {
-                    return "Required";
+                    return "Required";   
                 }
+
+
+
                 break;
-            case "select-req":
-                if (field_ob.field.selectedIndex === 0) {
-                    return "Required";
-                }
-                break;
-            case "select":
-                return VALID;
             case "checkbox":
                 var min = parseInt(type[2].split("-")[0]);
                 var max = parseInt(type[2].split("-")[1]);
@@ -218,4 +248,8 @@ function FormValidation(form) {
         s.className += " status-" + type;
         s.style.visibility = "visible";
     }
+
+    // run the validation
+    return validate();
+
 }
